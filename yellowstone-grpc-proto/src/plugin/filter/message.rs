@@ -150,6 +150,7 @@ impl FilteredUpdate {
             transaction: Some(message.transaction.clone()),
             meta: Some(message.meta.clone()),
             index: message.index as u64,
+            raw_transaction: message.raw_transaction.clone().unwrap_or_default(),
         }
     }
 
@@ -282,6 +283,7 @@ impl FilteredUpdate {
                         },
                         index: msg.index as usize,
                         account_keys: HashSet::new(),
+                        raw_transaction: None,
                     }),
                     slot: msg.slot,
                 })
@@ -1175,6 +1177,7 @@ pub mod tests {
                             meta: convert_to::create_transaction_meta(&tx.meta),
                             index,
                             account_keys: HashSet::new(),
+                            raw_transaction: None,
                         }
                     })
                     .map(Arc::new)

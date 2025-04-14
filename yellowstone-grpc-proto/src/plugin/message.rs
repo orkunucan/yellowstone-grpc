@@ -19,6 +19,7 @@ use {
         hash::{Hash, HASH_BYTES},
         pubkey::Pubkey,
         signature::Signature,
+        transaction::VersionedTransaction,
     },
     std::{
         collections::HashSet,
@@ -27,7 +28,7 @@ use {
         time::SystemTime,
     },
     bincode,
-    base64,
+    base64::engine::general_purpose::STANDARD as BASE64,
 };
 
 type FromUpdateOneofResult<T> = Result<T, &'static str>;
@@ -286,9 +287,10 @@ impl MessageTransactionInfo {
             .copied()
             .collect();
 
-        // Serialize the transaction to get raw bytes
-        let raw_bytes = bincode::serialize(&info.transaction).unwrap_or_default();
-        let raw_base64 = base64::encode(raw_bytes);
+        // Convert to VersionedTransaction and serialize
+        let versioned_tx = info.transaction.to_versioned_transaction();
+        let raw_bytes = bincode::serialize(&versioned_tx).unwrap_or_default();
+        let raw_base64 = BASE64.encode(raw_bytes);
 
         Self {
             signature: *info.signature,
@@ -303,13 +305,14 @@ impl MessageTransactionInfo {
 
     pub fn from_update_oneof(msg: SubscribeUpdateTransactionInfo) -> FromUpdateOneofResult<Self> {
         Ok(Self {
-            signature: Signature::new(&msg.signature),
+            signature: Signature::try_from(msg.signature.as_slice())
+                .map_err(|_| "invalid signature length")?,
             is_vote: msg.is_vote,
             transaction: msg.transaction.unwrap_or_default(),
             meta: msg.meta.unwrap_or_default(),
             index: msg.index as usize,
             account_keys: HashSet::new(),
-            raw_transaction: msg.raw_transaction,
+            raw_transaction: Some(msg.raw_transaction),
         })
     }
 

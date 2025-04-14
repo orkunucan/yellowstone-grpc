@@ -28,7 +28,7 @@ use {
         time::SystemTime,
     },
     bincode,
-    base64::engine::general_purpose::STANDARD as BASE64,
+    base64::{engine::general_purpose::STANDARD as BASE64, Engine},
 };
 
 type FromUpdateOneofResult<T> = Result<T, &'static str>;

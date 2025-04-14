@@ -26,6 +26,8 @@ use {
         sync::Arc,
         time::SystemTime,
     },
+    bincode,
+    base64,
 };
 
 type FromUpdateOneofResult<T> = Result<T, &'static str>;
@@ -271,6 +273,7 @@ pub struct MessageTransactionInfo {
     pub meta: confirmed_block::TransactionStatusMeta,
     pub index: usize,
     pub account_keys: HashSet<Pubkey>,
+    pub raw_transaction: Option<String>,
 }
 
 impl MessageTransactionInfo {
@@ -283,6 +286,10 @@ impl MessageTransactionInfo {
             .copied()
             .collect();
 
+        // Serialize the transaction to get raw bytes
+        let raw_bytes = bincode::serialize(&info.transaction).unwrap_or_default();
+        let raw_base64 = base64::encode(raw_bytes);
+
         Self {
             signature: *info.signature,
             is_vote: info.is_vote,
@@ -290,20 +297,19 @@ impl MessageTransactionInfo {
             meta: convert_to::create_transaction_meta(info.transaction_status_meta),
             index: info.index,
             account_keys,
+            raw_transaction: Some(raw_base64),
         }
     }
 
     pub fn from_update_oneof(msg: SubscribeUpdateTransactionInfo) -> FromUpdateOneofResult<Self> {
         Ok(Self {
-            signature: Signature::try_from(msg.signature.as_slice())
-                .map_err(|_| "invalid signature length")?,
+            signature: Signature::new(&msg.signature),
             is_vote: msg.is_vote,
-            transaction: msg
-                .transaction
-                .ok_or("transaction message should be defined")?,
-            meta: msg.meta.ok_or("meta message should be defined")?,
+            transaction: msg.transaction.unwrap_or_default(),
+            meta: msg.meta.unwrap_or_default(),
             index: msg.index as usize,
             account_keys: HashSet::new(),
+            raw_transaction: msg.raw_transaction,
         })
     }
 
